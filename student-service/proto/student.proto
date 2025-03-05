@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package student;
+
+// Student message format
+message Student {
+  string id = 1;
+  string name = 2;
+  int32 age = 3;
+  string email = 4;
+}
+
+// Service definition
+service StudentService {
+  rpc CreateStudent (Student) returns (Student);
+  rpc GetStudentById (GetStudentRequest) returns (Student);
+  rpc UpdateStudent (Student) returns (Student);
+  rpc DeleteStudent (GetStudentRequest) returns (DeleteResponse);
+  rpc ListStudents (Empty) returns (StudentList);
+}
+
+// Requests and responses
+message GetStudentRequest {
+  string id = 1;
+}
+
+message DeleteResponse {
+  bool success = 1;
+}
+
+message StudentList {
+  repeated Student students = 1;
+}
+
+message Empty {}
