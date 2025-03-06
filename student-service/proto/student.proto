@@ -9,7 +9,6 @@ message Student {
   int32 age = 3;
   string email = 4;
 }
-
 // Service definition
 service StudentService {
   rpc CreateStudent (Student) returns (Student);

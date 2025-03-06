@@ -28,7 +28,7 @@ async findOne(request: GetStudentRequest): Promise<GrpcStudent> {
     console.error(" Invalid ObjectId:", request.id);
     throw new RpcException('Invalid student ID format');
   }
-
+ 
   console.log(" Valid ObjectId:", request.id);
 
   // Query the database

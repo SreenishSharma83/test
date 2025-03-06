@@ -83,8 +83,91 @@
 
 
 //performing one way encoding and decoding of protobufs
-import { Controller, Get, Post, Put, Delete, Param, Body, Res } from '@nestjs/common';
-import { Response } from 'express';
+// import { Controller, Get, Post, Put, Delete, Param, Body, Res } from '@nestjs/common';
+// import { Response } from 'express';
+// import { StudentService } from './student.service';
+// import * as protobuf from 'protobufjs';
+
+// @Controller('students')
+// export class StudentController {
+//   private protobufRoot: protobuf.Root;
+//   private StudentList: protobuf.Type;
+//   private GrpcStudent: protobuf.Type;
+//   private DeleteResponse: protobuf.Type;
+
+//   constructor(private readonly studentService: StudentService) {
+//     this.loadProtobufDefinitions();
+//   }
+
+//   private async loadProtobufDefinitions() {
+//     this.protobufRoot = await protobuf.load("proto/student.proto"); // Adjust path if needed
+//     this.StudentList = this.protobufRoot.lookupType("student.StudentList");
+//     this.GrpcStudent = this.protobufRoot.lookupType("student.Student");
+//     this.DeleteResponse = this.protobufRoot.lookupType("student.DeleteResponse");
+//   }
+
+//   @Post()
+//   async create(@Body() student: any, @Res() res: Response) {
+//     const result = await this.studentService.create(student);
+//     return this.sendProtobufResponse(res, result, this.GrpcStudent);
+//   }
+
+//   @Get()
+//   async findAll(@Res() res: Response) {
+//     const result = await this.studentService.findAll({});
+//     return this.sendProtobufResponse(res, result, this.StudentList);
+//   }
+
+//   @Get(':id')
+//   async findOne(@Param('id') id: string, @Res() res: Response) {
+//     const student = await this.studentService.findOne({ id });
+//     return this.sendProtobufResponse(res, student, this.GrpcStudent);
+//   }
+
+//   @Delete(':id')
+//   async delete(@Param('id') id: string, @Res() res: Response) {
+//     const result = await this.studentService.delete({ id });
+//     return this.sendProtobufResponse(res, result, this.DeleteResponse);
+//   }
+
+//   @Put(':id')
+//   async update(@Param('id') id: string, @Body() student: any, @Res() res: Response) {
+//     const result = await this.studentService.update({ ...student, id });
+//     return this.sendProtobufResponse(res, result, this.GrpcStudent);
+//   }
+
+//   private sendProtobufResponse(res: Response, data: any, messageType: protobuf.Type) {
+//     if (!data) {
+//       return res.json({ error: 'Invalid Protobuf data' });
+//     }
+
+//     try {
+//       console.log(" Received Data:", JSON.stringify(data, null, 2));
+
+//       if (!messageType.create || !messageType.encode) {
+//         throw new Error('Invalid Protobuf message type (missing create/encode function)');
+//       }
+
+//       const protobufMessage = messageType.create(data);
+//       const encodedData = messageType.encode(protobufMessage).finish();
+//       return res.json({ data: Buffer.from(encodedData).toString('base64') });
+
+//     } catch (error) {
+//       console.error(" Protobuf Encoding Error:", error);
+//       return res.json({ error: 'Failed to encode Protobuf', details: error.message });
+//     }
+//   }
+// }
+
+
+
+
+
+
+
+//This is done for raw binary data communication between the server and caller
+import { Controller, Get, Post, Put, Delete, Param, Body, Res, Req } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { StudentService } from './student.service';
 import * as protobuf from 'protobufjs';
 
@@ -107,7 +190,10 @@ export class StudentController {
   }
 
   @Post()
-  async create(@Body() student: any, @Res() res: Response) {
+  async create(@Req() req: Request, @Res() res: Response) {
+    const student = this.decodeProtobuf(req.body, this.GrpcStudent);
+    if (!student) return res.status(400).send("Invalid Protobuf data");
+
     const result = await this.studentService.create(student);
     return this.sendProtobufResponse(res, result, this.GrpcStudent);
   }
@@ -131,31 +217,41 @@ export class StudentController {
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() student: any, @Res() res: Response) {
+  async update(@Param('id') id: string, @Req() req: Request, @Res() res: Response) {
+    const student = this.decodeProtobuf(req.body, this.GrpcStudent);
+    if (!student) return res.status(400).send("Invalid Protobuf data");
+
     const result = await this.studentService.update({ ...student, id });
     return this.sendProtobufResponse(res, result, this.GrpcStudent);
   }
 
+
   private sendProtobufResponse(res: Response, data: any, messageType: protobuf.Type) {
-    if (!data) {
-      return res.json({ error: 'Invalid Protobuf data' });
-    }
+    if (!data) return res.status(400).send("Invalid Protobuf data");
 
     try {
-      console.log(" Received Data:", JSON.stringify(data, null, 2));
-
-      if (!messageType.create || !messageType.encode) {
-        throw new Error('Invalid Protobuf message type (missing create/encode function)');
-      }
+      console.log("Sending Data:", JSON.stringify(data, null, 2));
 
       const protobufMessage = messageType.create(data);
       const encodedData = messageType.encode(protobufMessage).finish();
-
-      return res.json({ data: Buffer.from(encodedData).toString('base64') });
+      res.setHeader("Content-Type", "application/x-protobuf");
+      res.setHeader("Content-Length", encodedData.length);
+      // res.setHeader("Content-Type", "application/octet-stream");
+      // res.setHeader("Content-Length", encodedData.length);
+      return res.send(encodedData); 
 
     } catch (error) {
-      console.error(" Protobuf Encoding Error:", error);
-      return res.json({ error: 'Failed to encode Protobuf', details: error.message });
+      console.error("Protobuf Encoding Error:", error);
+      return res.status(500).send("Failed to encode Protobuf");
+    }
+  }
+
+  private decodeProtobuf(buffer: Buffer, messageType: protobuf.Type): any | null {
+    try {
+      return messageType.decode(buffer);
+    } catch (error) {
+      console.error("Protobuf Decoding Error:", error);
+      return null;
     }
   }
 }
@@ -165,7 +261,62 @@ export class StudentController {
 
 
 
-//To perform 2 way encoding and decoding (communication) of protobufs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//To perform 2 way encoding and decoding (communication) of protobufs (Base64 encoding);
 //this is possible only with frontend integration since we need a readable format to send to the message
 // import { Controller, Get, Post, Put, Delete, Param, Body, Res, OnModuleInit } from '@nestjs/common';
 // import { Response } from 'express';
@@ -275,3 +426,56 @@ export class StudentController {
 //     }
 //   }
 // }
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//application / x-protobuf format
+
+ /**
+   * Encodes JSON data into a Protobuf message and sends it as a binary response.
+   */
+//  private sendProtobufResponse(res: Response, data: any, messageType: protobuf.Type) {
+//   if (!data) {
+//     return res.status(404).send("Not found");
+//   }
+
+//   try {
+//     const protobufMessage = messageType.create(data);
+//     const encodedData = messageType.encode(protobufMessage).finish();
+
+//     res.setHeader('Content-Type', 'application/x-protobuf');
+//     return res.send(encodedData); // Send raw binary Protobuf
+
+//   } catch (error) {
+//     return res.status(500).send("Failed to encode Protobuf");
+//   }
+// }
+
+
