@@ -191,10 +191,10 @@ export class StudentController {
 
   @Post()
   async create(@Req() req: Request, @Res() res: Response) {
-    const student = this.decodeProtobuf(req.body, this.GrpcStudent);
-    if (!student) return res.status(400).send("Invalid Protobuf data");
-
-    const result = await this.studentService.create(student);
+    // const student = this.decodeProtobuf(req.body, this.GrpcStudent);
+    // if (!student) return res.status(400).send("Invalid Protobuf data");
+    console.log({...req.body});
+    const result = await this.studentService.create(req.body);
     return this.sendProtobufResponse(res, result, this.GrpcStudent);
   }
 
@@ -218,10 +218,9 @@ export class StudentController {
 
   @Put(':id')
   async update(@Param('id') id: string, @Req() req: Request, @Res() res: Response) {
-    const student = this.decodeProtobuf(req.body, this.GrpcStudent);
-    if (!student) return res.status(400).send("Invalid Protobuf data");
-
-    const result = await this.studentService.update({ ...student, id });
+    // const student = this.decodeProtobuf(req.body, this.GrpcStudent);
+    // if (!student) return res.status(400).send("Invalid Protobuf data");
+    const result = await this.studentService.update({ ...req.body, id });
     return this.sendProtobufResponse(res, result, this.GrpcStudent);
   }
 
